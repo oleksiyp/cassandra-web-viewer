@@ -15,10 +15,16 @@ import org.apache.cassandra.thrift.SuperColumn;
 import org.apache.cassandra.thrift.TimedOutException;
 import org.apache.cassandra.thrift.UnavailableException;
 import org.apache.thrift.TException;
+import org.apache.thrift.protocol.TBinaryProtocol;
+import org.apache.thrift.protocol.TProtocol;
+import org.apache.thrift.transport.TSocket;
+import org.apache.thrift.transport.TTransportException;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,6 +37,7 @@ import java.util.TreeMap;
  */
 public class CassandraBrowser {
     public static final ConsistencyLevel DEFAULT_CONSISTENCY_LEVEL = ConsistencyLevel.QUORUM;
+    public static final String RECORD_KEY = "";
     private final Cassandra.Client client;
     private String keyspace;
     private String columnFamily;
@@ -40,13 +47,42 @@ public class CassandraBrowser {
         this.client = client;
     }
 
+    public static TProtocol doOpenProtocol(String userHostPort) throws TTransportException {
+        TProtocol protocol;
+        String[]hostPortArr = userHostPort.split(":");
+        String host = hostPortArr[0];
+        int port = 9160;
+        if (hostPortArr.length > 1) {
+            try {
+                port = Integer.parseInt(hostPortArr[1]);
+            } catch (NumberFormatException nfe) {
+                //skip;
+            }
+        }
+
+        TSocket transport = new TSocket(host, port, 1000000);
+        protocol = new TBinaryProtocol(transport);
+        transport.open();
+        return protocol;
+    }
+
+    public String getKeyspace() {
+        return keyspace;
+    }
+
     public void setKeyspace(String keyspace) {
         this.keyspace = keyspace;
+    }
+
+    public String getColumnFamily() {
+        return columnFamily;
     }
 
     public void setColumnFamily(String columnFamily) {
         this.columnFamily = columnFamily;
     }
+
+
 
     public List<String> getKeys(String start, int count) throws TimedOutException, InvalidRequestException, UnavailableException, TException {
         if (keyspace == null) {
@@ -79,7 +115,7 @@ public class CassandraBrowser {
         return result;
     }
 
-    public Map<String, ValueTimestamp> getRecord(String key) throws TimedOutException, InvalidRequestException, UnavailableException, TException {
+    public Map<GeneralColumn, ValueTimestamp> getRecord(String key) throws TimedOutException, InvalidRequestException, UnavailableException, TException {
 
         SliceRange range = new SliceRange();
         range.setStart(new byte[0]);
@@ -98,7 +134,8 @@ public class CassandraBrowser {
                 predicate,
                 DEFAULT_CONSISTENCY_LEVEL);
 
-        Map<String, ValueTimestamp> result = new TreeMap<String, ValueTimestamp>();
+        Map<GeneralColumn, ValueTimestamp> result = new TreeMap<GeneralColumn, ValueTimestamp>();
+
         for (ColumnOrSuperColumn cosc : slice) {
             Column column = cosc.getColumn();
             SuperColumn superColumn = cosc.getSuper_column();
@@ -106,18 +143,21 @@ public class CassandraBrowser {
                 byte[] name = column.getName();
                 byte[] value = column.getValue();
 
-                result.put(stringify(name),
-                        new ValueTimestamp(deserialize(value), column.getTimestamp())
-                );
+                GeneralColumn genColumn = new GeneralColumn((Comparable) deserialize(name));
+                ValueTimestamp valueTs = new ValueTimestamp(deserialize(value), column.getTimestamp());
+                result.put(genColumn, valueTs);
             } else if (superColumn != null) {
                 for (Column subColumn : superColumn.getColumns())
                 {
                     byte[] name = subColumn.getName();
                     byte[] value = subColumn.getValue();
-                    String superName = stringify(superColumn.getName()) + " => " + stringify(name);
-                    result.put(superName,
-                        new ValueTimestamp(deserialize(value), subColumn.getTimestamp())
+                    GeneralColumn genColumn = new GeneralColumn(
+                            (Comparable) deserialize(name),
+                            (Comparable) deserialize(superColumn.getName())
                     );
+                    ValueTimestamp valueTs = new ValueTimestamp(deserialize(value), subColumn.getTimestamp());
+
+                    result.put(genColumn, valueTs);
                 }
             }
         }
@@ -160,21 +200,5 @@ public class CassandraBrowser {
         this.deserialzer = deserialzer;
     }
 
-    public static class ValueTimestamp {
-        private final Object value;
-        private final long timestamp;
 
-        private ValueTimestamp(Object value, long timestamp) {
-            this.value = value;
-            this.timestamp = timestamp;
-        }
-
-        public Object getValue() {
-            return value;
-        }
-
-        public long getTimestamp() {
-            return timestamp;
-        }
-    }
 }
