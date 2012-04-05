@@ -8,7 +8,7 @@
      <label for="username" width="200px">username</label>
      <input type="text" name="username" size="6" id="username" />
      <label for="hostname" width="200px">hostname</label>
-     <input type="text" name="hostname" size="8" id="hostname" tabindex="1" />
+     <input type="text" name="hostname" size="8" id="hostname" tabindex="1" value="localhost" />
      <label for="port">port</label>
      <input type="text" name="port" id="port" size="4" value="9160" />
      <input type="submit" value="Open!" name="open" />
