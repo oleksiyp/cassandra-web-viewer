@@ -14,8 +14,11 @@
 <head><title>Keys from ${fromKey} to ${toKey}</title></head>
 <body>
     <h2>Keys</h2>
-    <c:if test="${hasRange}">
+    <c:if test="${!noKeys}">
         <h3>${fromKey} <span style="font-size: 70%">to</span> ${toKey}</h3>
+    </c:if>
+    <c:if test="${noKeys}">
+        <span style="font-size: 250%; font-weight: bold;">EMPTY</span>
     </c:if>
     <c:forEach var="key" items="${keys}" varStatus="forStatus">
         <tr>

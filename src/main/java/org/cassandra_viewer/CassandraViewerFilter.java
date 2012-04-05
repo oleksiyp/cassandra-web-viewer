@@ -315,16 +315,25 @@ public class CassandraViewerFilter implements Filter {
             request.setAttribute("keys", keys);
             request.setAttribute("columns", columns);
             request.setAttribute("records", records);
-            request.setAttribute("fromKey", keys.get(0));
-            request.setAttribute("toKey", keys.get(keys.size() - 1));
+            if (keys.isEmpty()) {
+                request.setAttribute("noKeys", true);
+            } else {
+                request.setAttribute("noKeys", false);
+                request.setAttribute("fromKey", keys.get(0));
+                request.setAttribute("toKey", keys.get(keys.size() - 1));
+            }
             forward("TABLE", "/WEB-INF/recordtable.jsp");
         }
 
         private void outputKeys(List<String> keys, boolean hasNext, boolean hasPrevious) throws IOException, ServletException {
             request.setAttribute("keys", keys);
-            request.setAttribute("hasRange", !keys.isEmpty());
-            request.setAttribute("fromKey", keys.get(0));
-            request.setAttribute("toKey", keys.get(keys.size() - 1));
+            if (keys.isEmpty()) {
+                request.setAttribute("noKeys", true);
+            } else {
+                request.setAttribute("noKeys", false);
+                request.setAttribute("fromKey", keys.get(0));
+                request.setAttribute("toKey", keys.get(keys.size() - 1));
+            }
             request.setAttribute("hasNext", hasNext);
             request.setAttribute("hasPrevious", hasPrevious);
             forward("KEYS", "/WEB-INF/keys.jsp");
