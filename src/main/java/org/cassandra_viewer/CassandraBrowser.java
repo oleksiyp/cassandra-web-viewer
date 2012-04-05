@@ -17,6 +17,7 @@ import org.apache.cassandra.thrift.UnavailableException;
 import org.apache.thrift.TException;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +34,7 @@ public class CassandraBrowser {
     private final Cassandra.Client client;
     private String keyspace;
     private String columnFamily;
+    private Deserializer deserialzer;
 
     public CassandraBrowser(Cassandra.Client client) {
         this.client = client;
@@ -104,17 +106,17 @@ public class CassandraBrowser {
                 byte[] name = column.getName();
                 byte[] value = column.getValue();
 
-                result.put(new String(name),
-                        new ValueTimestamp(value, column.getTimestamp())
+                result.put(stringify(name),
+                        new ValueTimestamp(deserialize(value), column.getTimestamp())
                 );
             } else if (superColumn != null) {
                 for (Column subColumn : superColumn.getColumns())
                 {
                     byte[] name = subColumn.getName();
                     byte[] value = subColumn.getValue();
-                    String superName = new String(superColumn.getName()) + ":" + new String(name);
+                    String superName = stringify(superColumn.getName()) + " => " + stringify(name);
                     result.put(superName,
-                        new ValueTimestamp(value, subColumn.getTimestamp())
+                        new ValueTimestamp(deserialize(value), subColumn.getTimestamp())
                     );
                 }
             }
@@ -123,12 +125,39 @@ public class CassandraBrowser {
         return result;
     }
 
+    public Object deserialize(byte[] bytes) {
+        if (deserialzer != null) {
+            return deserialzer.deserialize(bytes);
+        }
+        return bytes;
+    }
+
+    public static String stringify(Object object) {
+        if (object == null) {
+            return "null";
+        }
+        Class<? extends Object> clazz = object.getClass();
+        if (clazz.equals(byte[].class)) {
+            return Arrays.toString((byte[]) object);
+        } else {
+            return object.toString();
+        }
+    }
+
+    public String stringify(byte []bytes) {
+        return stringify(deserialize(bytes));
+    }
+
     public Set<String> getKeyspaces() throws TException {
         return client.describe_keyspaces();
     }
 
     public Set<String> getColumnFamilies() throws TException, NotFoundException {
         return client.describe_keyspace(keyspace).keySet();
+    }
+
+    public void setDeserialzer(Deserializer deserialzer) {
+        this.deserialzer = deserialzer;
     }
 
     public static class ValueTimestamp {

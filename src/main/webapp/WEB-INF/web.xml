@@ -7,6 +7,10 @@
     <filter>
         <filter-name>CassandraViewerFilter</filter-name>
         <filter-class>org.cassandra_viewer.CassandraViewerFilter</filter-class>
+        <init-param>
+            <param-name>DEFAULT_DESERIALZER</param-name>
+            <param-value>0->boolean,1->bytes,2->date,3->integer,4->long,5->string,6->uuid,7->object,8->float</param-value>
+        </init-param>
     </filter>
     <filter-mapping>
         <filter-name>CassandraViewerFilter</filter-name>

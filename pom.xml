@@ -7,13 +7,10 @@
     <version>1.0</version>
     <name>cassandra-web-viewer Maven Webapp</name>
     <url>http://maven.apache.org</url>
-    <repositories>
-        <repository>
-            <id>sixtydigits</id>
-            <name>sixtydigits</name>
-            <url>http://maven.sixtydigits.com</url>
-        </repository>
-    </repositories>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
 
     <dependencies>
         <dependency>
@@ -62,5 +59,14 @@
     </dependencies>
     <build>
         <finalName>cassandra-web-viewer</finalName>
+        <plugins>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>1.6</source>
+                    <target>1.6</target>
+                </configuration>
+            </plugin>
+        </plugins>
     </build>
 </project>

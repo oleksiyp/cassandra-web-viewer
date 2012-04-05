@@ -10,7 +10,6 @@ import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TProtocol;
 import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TTransportException;
-import org.cassandra_viewer.util.HttpServletRequestToStringer;
 
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
@@ -20,15 +19,11 @@ import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.security.Principal;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.Enumeration;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -60,7 +55,15 @@ public class CassandraViewerFilter implements Filter {
     }
 
 
-    private void doGet(javax.servlet.http.HttpServletRequest request, javax.servlet.http.HttpServletResponse response) throws javax.servlet.ServletException, IOException {
+    private void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        String deserializer = request.getParameter("deserializer");
+        if (deserializer == null) {
+            deserializer = config.getInitParameter("DEFAULT_DESERIALZER");
+            if (deserializer == null) {
+                deserializer = "";
+            }
+        }
+
         String queryString = request.getServletPath();
         if (queryString.startsWith("/")) {
             queryString = queryString.substring(1);
@@ -101,11 +104,13 @@ public class CassandraViewerFilter implements Filter {
             } else if (values.length == 3) {
                 browser.setKeyspace(values[1]);
                 browser.setColumnFamily(values[2]);
+                browser.setDeserialzer(new Deserializer(deserializer));
                 browseKeys(request, response, browser);
             } else if (values.length == 4) {
                 browser.setKeyspace(values[1]);
                 browser.setColumnFamily(values[2]);
                 String key = values[3];
+                browser.setDeserialzer(new Deserializer(deserializer));
                 browseRecord(request, response, browser, key);
             }
             response.getWriter().println(" <a href='..'>Back</a> ");
@@ -205,7 +210,7 @@ public class CassandraViewerFilter implements Filter {
             } else if (value.toString().trim().equals("")) {
                 value = "&nbsp;";
             } else {
-                value = encode(value.toString());
+                value = encode(CassandraBrowser.stringify(value));
             }
             writer.println("<tr><td>" + encode(columnName)
                     + "</td><td>" + value
@@ -276,7 +281,7 @@ public class CassandraViewerFilter implements Filter {
                 } else if (value.toString().trim().equals("")) {
                     value = "&nbsp;";
                 } else {
-                    value = encode(value.toString());
+                    value = encode(CassandraBrowser.stringify(value));
                 }
                 writer.println("<td>" + value + "</td>");
             }
