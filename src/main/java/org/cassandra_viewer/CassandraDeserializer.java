@@ -15,7 +15,7 @@ import java.util.UUID;
  * Date: 4/5/12
  * Time: 1:08 PM
  */
-public class Deserializer {
+public class CassandraDeserializer {
 
     enum Type {
         NULL,
@@ -34,7 +34,7 @@ public class Deserializer {
     }
     private Map<Byte, Type> typeMap = new HashMap();
 
-    public Deserializer(String definition) {
+    public CassandraDeserializer(String definition) {
         String[] defs = definition.split("\\s*,\\s*");
         for (String def : defs) {
             String[] values = def.split("->");

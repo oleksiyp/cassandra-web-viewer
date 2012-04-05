@@ -8,6 +8,7 @@ import org.apache.cassandra.thrift.UnavailableException;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TProtocol;
 import org.apache.thrift.transport.TTransportException;
+import org.cassandra_viewer.util.HttpParamsHelper;
 
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
@@ -18,12 +19,11 @@ import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 /**
  * User: captain-protect
@@ -44,17 +44,12 @@ public class CassandraViewerFilter implements Filter {
         if (servletPath != null && servletPath.startsWith("/WEB-INF")) {
             chain.doFilter(req, resp);
         } else if (request.getMethod().equals("GET")) {
-            doGet(request, response);
+            new RequestProcessor(request, response).doGet();
         }
     }
 
     public void init(FilterConfig config) throws ServletException {
         this.config = config;
-    }
-
-
-    private void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        new RequestProcessor(request, response).doGet();
     }
 
     private class RequestProcessor {
@@ -82,14 +77,17 @@ public class CassandraViewerFilter implements Filter {
                 queryString = queryString.substring(1);
             }
             if (queryString.equals("go")) {
-                goRedirect();
+                actionRedirect();
+                return;
+            } else if (queryString.equals("navigate")) {
+                actionNavigate();
                 return;
             }
             String[] values = queryString.split("/");
 
 
             if (values.length < 1 || !queryString.endsWith("/")) {
-                forward("/WEB-INF/start.jsp");
+                forward("START", "/WEB-INF/start.jsp");
                 return;
             }
 
@@ -114,13 +112,13 @@ public class CassandraViewerFilter implements Filter {
                 } else if (values.length == 3) {
                     browser.setKeyspace(values[1]);
                     browser.setColumnFamily(values[2]);
-                    browser.setDeserialzer(new Deserializer(deserializer));
+                    browser.setDeserialzer(new CassandraDeserializer(deserializer));
                     browseKeys(browser);
                 } else if (values.length == 4) {
                     browser.setKeyspace(values[1]);
                     browser.setColumnFamily(values[2]);
                     String key = values[3];
-                    browser.setDeserialzer(new Deserializer(deserializer));
+                    browser.setDeserialzer(new CassandraDeserializer(deserializer));
                     browseRecord(key);
                 }
             } catch (TimedOutException e) {
@@ -141,7 +139,70 @@ public class CassandraViewerFilter implements Filter {
             }
         }
 
-        private void goRedirect() throws IOException {
+        private void actionNavigate() throws IOException {
+            Map map = new TreeMap();
+            HttpParamsHelper.suckInParam(map, request, "start");
+            HttpParamsHelper.suckInParam(map, request, "count");
+            HttpParamsHelper.suckInParam(map, request, "showInTable");
+            HttpParamsHelper.suckInParam(map, request, "next");
+            HttpParamsHelper.suckInParam(map, request, "toKey");
+            HttpParamsHelper.suckInParam(map, request, "previous");
+            HttpParamsHelper.suckInParam(map, request, "fromKey");
+            HttpParamsHelper.suckInParam(map, request, "jump");
+            HttpParamsHelper.suckInParam(map, request, "jumpPos");
+            HttpParamsHelper.suckInParam(map, request, "limit");
+            HttpParamsHelper.suckInParam(map, request, "limitCount");
+
+            if (request.getParameter("next") != null) {
+                map.put("start", map.get("toKey"));
+                map.remove("end");
+                removeTechnicalNavigableParams(map);
+                goReferer(map);
+            } else if (request.getParameter("previous") != null) {
+                map.put("end", map.get("fromKey"));
+                map.remove("start");
+                removeTechnicalNavigableParams(map);
+                goReferer(map);
+            } else if (request.getParameter("jump") != null) {
+                map.put("start", map.get("jumpPos"));
+                removeTechnicalNavigableParams(map);
+                goReferer(map);
+            } else if (request.getParameter("limit") != null) {
+                map.put("count", map.get("limitCount"));
+                removeTechnicalNavigableParams(map);
+                goReferer(map);
+            }
+        }
+
+        private void removeTechnicalNavigableParams(Map map) {
+            map.remove("firstKey");
+            map.remove("lastKey");
+            map.remove("next");
+            map.remove("toKey");
+            map.remove("previous");
+            map.remove("fromKey");
+            map.remove("jump");
+            map.remove("limit");
+            map.remove("jumpPos");
+            map.remove("limitCount");
+        }
+
+        private void goReferer(Map params) throws IOException {
+            String referer = request.getHeader("Referer");
+            if (referer == null){
+                response.sendError(500, "No referer to action jumplet");
+                return;
+            }
+
+            int paramsPoint = referer.indexOf('?');
+            if (paramsPoint != -1) {
+                referer = referer.substring(0, paramsPoint);
+            }
+            referer += "?" + HttpParamsHelper.toParamsStr(params);
+            response.sendRedirect(referer);
+        }
+
+        private void actionRedirect() throws IOException {
             String hostname = request.getParameter("hostname");
             String port = request.getParameter("port");
             String username = request.getParameter("username");
@@ -174,6 +235,7 @@ public class CassandraViewerFilter implements Filter {
 
         private void browseKeys(CassandraBrowser browser) throws IOException, TException, TimedOutException, InvalidRequestException, UnavailableException, ServletException {
             String start = request.getParameter("start");
+            String end = request.getParameter("end");
             String countStr = request.getParameter("count");
             int count = KEYS_PER_PAGE;
             if (countStr != null) {
@@ -184,12 +246,27 @@ public class CassandraViewerFilter implements Filter {
                 }
             }
             String showTableStr = request.getParameter("showTable");
-            List<String> keys = browser.getKeys(start, count);
+            List<String> keys = browser.getKeys(start, end, count + 1);
+            boolean hasNext = true, hasPrevoius = true;
+            if (start != null) {
+                hasNext = keys.size() == count + 1;
+                if (hasNext) {
+                    keys = keys.subList(0, keys.size() - 1);
+                }
+            }
+            if (end != null)
+            {
+                hasPrevoius = keys.size() == count + 1;
+                if (hasPrevoius) {
+                    keys = keys.subList(1, keys.size());
+                }
+            }
+
             boolean showTable = (showTableStr != null && showTableStr.trim().equals("true"));
             if (showTable) {
                 browseInTable(keys);
             } else {
-                outputKeys(keys);
+                outputKeys(keys, hasNext, hasPrevoius);
             }
 //            outputNext(keys, count, showTable);
 //            outputShowInTable(start, showTable);
@@ -212,60 +289,43 @@ public class CassandraViewerFilter implements Filter {
         private void outputColumnFamilies(Set<String> columnFamilies) throws IOException, ServletException {
             request.setAttribute("keyspace", browser.getKeyspace());
             request.setAttribute("families", columnFamilies);
-            forward("/WEB-INF/columnfamilies.jsp");
+            forward("COLUMN_FAMILIES", "/WEB-INF/columnfamilies.jsp");
         }
 
         private void outputKeyspaces(Set<String> keyspaces) throws IOException, ServletException {
             request.setAttribute("hostPort", hostPort);
             request.setAttribute("keyspaces", keyspaces);
-            forward("/WEB-INF/keyspaces.jsp");
+            forward("KEYSPACES", "/WEB-INF/keyspaces.jsp");
         }
 
         private void outputRecord(String key, Map<GeneralColumn, ValueTimestamp> record) throws IOException, ServletException {
             request.setAttribute("key", key);
             request.setAttribute("columns", record.keySet());
             request.setAttribute("record", record);
-            forward("/WEB-INF/record.jsp");
+            forward("RECORD", "/WEB-INF/record.jsp");
         }
 
         private void outputTable(List<String> keys, List<GeneralColumn> columns, List<Map<GeneralColumn, ValueTimestamp>> records) throws IOException, ServletException {
             request.setAttribute("keys", keys);
             request.setAttribute("columns", columns);
             request.setAttribute("records", records);
-            forward("/WEB-INF/recordtable.jsp");
+            request.setAttribute("fromKey", keys.get(0));
+            request.setAttribute("toKey", keys.get(keys.size() - 1));
+            forward("TABLE", "/WEB-INF/recordtable.jsp");
         }
 
-        private void outputKeys(List<String> keys) throws IOException, ServletException {
+        private void outputKeys(List<String> keys, boolean hasNext, boolean hasPrevious) throws IOException, ServletException {
             request.setAttribute("keys", keys);
             request.setAttribute("hasRange", !keys.isEmpty());
             request.setAttribute("fromKey", keys.get(0));
             request.setAttribute("toKey", keys.get(keys.size() - 1));
-            forward("/WEB-INF/keys.jsp");
-        }
-        private void outputNext(List<String> keys, int count, boolean showTable) throws IOException {
-            PrintWriter writer = response.getWriter();
-            if (keys.size() == count) {
-                String lastKey = keys.get(keys.size() - 1);
-                String otherParams = "";
-                if (count != KEYS_PER_PAGE) {
-                    otherParams += "&count=" + count;
-                }
-                if (showTable) {
-                    otherParams += "&showTable=true";
-                }
-                writer.println("<a href='?start=" + Encoder.encode(lastKey) + otherParams + "'>Next page</a>");
-            }
+            request.setAttribute("hasNext", hasNext);
+            request.setAttribute("hasPrevious", hasPrevious);
+            forward("KEYS", "/WEB-INF/keys.jsp");
         }
 
-        private void outputShowInTable(String start, boolean showTable) throws IOException {
-            showTable = !showTable;
-            PrintWriter writer = response.getWriter();
-            String params = start != null ? ("?start=" + Encoder.encode(start) + "&") : "?";
-            params += "count=5&showTable=" + (showTable ? "true" : "false");
-            writer.println(" <a href='" + params + "'>" + (showTable ? "Show as table" : "Show as list") + "</a>");
-        }
-
-        private void forward(String path) throws ServletException, IOException {
+        private void forward(String pageType, String path) throws ServletException, IOException {
+            request.setAttribute("pageType", pageType);
             config.getServletContext().getRequestDispatcher(path).forward(request, response);
         }
 

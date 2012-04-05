@@ -1,7 +1,7 @@
 <%@ page
         contentType="text/html;charset=UTF-8"
         language="java"
-        import="org.cassandra_viewer.Encoder"
+        import="org.cassandra_viewer.util.Encoder"
         isELIgnored="false" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 
@@ -16,8 +16,7 @@
     %>
     <a href="<%= familyEncoded %>/"><%= familyEncoded %></a><br />
 </c:forEach>
-<hr />
-<a href="..">Back</a>
+<%@ include file="controls.jsp"%>
 
 </body>
 </html>

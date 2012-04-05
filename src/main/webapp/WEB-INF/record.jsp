@@ -1,5 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" isELIgnored="false" %>
-<%@ page import="org.cassandra_viewer.Encoder" %>
+<%@ page import="org.cassandra_viewer.util.Encoder" %>
 <%@ page import="org.cassandra_viewer.ValueTimestamp" %>
 <%@ page import="org.cassandra_viewer.GeneralColumn" %>
 <%@ page import="java.util.Map" %>
@@ -7,7 +7,7 @@
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <html>
 <%
-    String encodedKey = Encoder.encode((String) request.getAttribute("key"));
+    String encodedKey = org.cassandra_viewer.util.Encoder.encode((String) request.getAttribute("key"));
 %>
 
 <head><title>Record <%=encodedKey%></title></head>
@@ -34,7 +34,7 @@
                         if (value.toString().trim().equals("")) {
                             value = "&nbsp;";
                         } else {
-                            value = Encoder.encode((String) value);
+                            value = org.cassandra_viewer.util.Encoder.encode((String) value);
                         }
                     }
                     if (column.getSuperColumn() == null) {
@@ -48,8 +48,8 @@
             </tr>
         </c:forEach>
     </table>
-    <hr />
-    <a href="..">Back</a>
+
+    <%@ include file="controls.jsp"%>
 
 </body>
 </html>

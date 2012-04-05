@@ -20,11 +20,9 @@ import org.apache.thrift.protocol.TProtocol;
 import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TTransportException;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -41,7 +39,7 @@ public class CassandraBrowser {
     private final Cassandra.Client client;
     private String keyspace;
     private String columnFamily;
-    private Deserializer deserialzer;
+    private CassandraDeserializer deserialzer;
 
     public CassandraBrowser(Cassandra.Client client) {
         this.client = client;
@@ -84,7 +82,7 @@ public class CassandraBrowser {
 
 
 
-    public List<String> getKeys(String start, int count) throws TimedOutException, InvalidRequestException, UnavailableException, TException {
+    public List<String> getKeys(String start, String end, int count) throws TimedOutException, InvalidRequestException, UnavailableException, TException {
         if (keyspace == null) {
             throw new IllegalArgumentException("no keyspace specified");
         }
@@ -99,7 +97,7 @@ public class CassandraBrowser {
 
         KeyRange keyRange = new KeyRange(count);
         keyRange.setStart_key(start == null ? "" : start);
-        keyRange.setEnd_key("");
+        keyRange.setEnd_key(end == null ? "" : end);
 
         List<KeySlice> slices = client.get_range_slices(
                 keyspace,
@@ -196,7 +194,7 @@ public class CassandraBrowser {
         return client.describe_keyspace(keyspace).keySet();
     }
 
-    public void setDeserialzer(Deserializer deserialzer) {
+    public void setDeserialzer(CassandraDeserializer deserialzer) {
         this.deserialzer = deserialzer;
     }
 

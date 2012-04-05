@@ -7,7 +7,7 @@
 <%@ page import="java.util.Map" %>
 <%@ page import="java.util.List" %>
 <%@ page import="javax.servlet.jsp.jstl.core.LoopTagStatus" %>
-<%@ page import="org.cassandra_viewer.Encoder" %>
+<%@ page import="org.cassandra_viewer.util.Encoder" %>
 
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <html>
@@ -26,8 +26,8 @@
             <a href="<%= encodedKey %>/"><%= encodedKey %></a>
         </tr>
     </c:forEach>
-    <hr />
-    <a href="..">Back</a>
+
+    <%@ include file="controls.jsp"%>
 
 </body>
 </html>

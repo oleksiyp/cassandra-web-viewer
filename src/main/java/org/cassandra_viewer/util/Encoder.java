@@ -1,4 +1,4 @@
-package org.cassandra_viewer;
+package org.cassandra_viewer.util;
 
 /**
  * User: captain-protect
