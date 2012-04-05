@@ -2,6 +2,7 @@ package org.cassandra_viewer;
 
 import org.apache.cassandra.thrift.Cassandra;
 import org.apache.cassandra.thrift.InvalidRequestException;
+import org.apache.cassandra.thrift.NotFoundException;
 import org.apache.cassandra.thrift.TimedOutException;
 import org.apache.cassandra.thrift.UnavailableException;
 import org.apache.thrift.TException;
@@ -9,77 +10,105 @@ import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TProtocol;
 import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TTransportException;
+import org.cassandra_viewer.util.HttpServletRequestToStringer;
 
+import javax.servlet.Filter;
+import javax.servlet.FilterChain;
+import javax.servlet.FilterConfig;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.security.Principal;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Enumeration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * User: captain-protect
- * Date: 4/2/12
- * Time: 4:39 PM
+ * Date: 4/5/12
+ * Time: 11:47 AM
  */
-public class CassandraServlet extends javax.servlet.http.HttpServlet {
+public class CassandraViewerFilter implements Filter {
+    private FilterConfig config;
     private static final int KEYS_PER_PAGE = 100;
 
-    protected void doPost(javax.servlet.http.HttpServletRequest request, javax.servlet.http.HttpServletResponse response) throws javax.servlet.ServletException, IOException {
-
+    public void destroy() {
     }
 
-    protected void doGet(javax.servlet.http.HttpServletRequest request, javax.servlet.http.HttpServletResponse response) throws javax.servlet.ServletException, IOException {
-        String queryString = request.getPathInfo();
+    public void doFilter(ServletRequest req, ServletResponse resp, FilterChain chain) throws ServletException, IOException {
+        HttpServletRequest request = (HttpServletRequest) req;
+        HttpServletResponse response = (HttpServletResponse) resp;
+        String servletPath = request.getServletPath();
+        if (servletPath != null && servletPath.startsWith("/WEB-INF")) {
+            chain.doFilter(req, resp);
+        } else if (request.getMethod().equals("GET")) {
+            doGet(request, response);
+        }
+    }
+
+    public void init(FilterConfig config) throws ServletException {
+        this.config = config;
+    }
+
+
+    private void doGet(javax.servlet.http.HttpServletRequest request, javax.servlet.http.HttpServletResponse response) throws javax.servlet.ServletException, IOException {
+        String queryString = request.getServletPath();
         if (queryString.startsWith("/")) {
             queryString = queryString.substring(1);
         }
+        if (queryString.equals("go")) {
+            goRedirect(request, response);
+            return;
+        }
         String[] values = queryString.split("/");
 
-        if (values.length < 2 || !queryString.endsWith("/")) {
-            help(response);
+
+        if (values.length < 1 || !queryString.endsWith("/")) {
+            doStart(request, response);
             return;
         }
 
-        String hostnamePort = values[0];
-        String keyspace = values[1];
-        String columnFamily = values[2];
-
-        String[]hostPortArr = hostnamePort.split(":");
-        String host = hostPortArr[0];
-        int port = 9160;
-        if (hostPortArr.length > 1) {
-            try {
-            port = Integer.parseInt(hostPortArr[1]);
-            } catch (NumberFormatException nfe) {
-                //skip;
-            }
-        }
-
-        TSocket transport = new TSocket(host, port, 1000000);
-        TProtocol protocol = new TBinaryProtocol(transport);
+        String userHostPort = values[0];
+        TProtocol protocol;
         try {
-            transport.open();
+            protocol = doOpenProtocol(userHostPort);
         } catch (TTransportException e) {
             response.sendError(500, e.toString());
             return;
         }
-
         Cassandra.Client client = new Cassandra.Client(protocol);
-
         CassandraBrowser browser = new CassandraBrowser(client);
-        browser.setKeyspace(keyspace);
-        browser.setColumnFamily(columnFamily);
 
         try {
-            if (values.length == 3) {
+            if (values.length == 1) {
+                Set<String> keyspaces = browseKeyspaces(browser);
+                outputKeyspaces(response, keyspaces);
+                response.getWriter().println(" <hr /> ");
+            } else if (values.length == 2) {
+                browser.setKeyspace(values[1]);
+                Set<String> columnFamilies = browser.getColumnFamilies();
+                outputColumnFamilies(response, columnFamilies);
+                response.getWriter().println(" <hr /> ");
+            } else if (values.length == 3) {
+                browser.setKeyspace(values[1]);
+                browser.setColumnFamily(values[2]);
                 browseKeys(request, response, browser);
             } else if (values.length == 4) {
+                browser.setKeyspace(values[1]);
+                browser.setColumnFamily(values[2]);
                 String key = values[3];
                 browseRecord(request, response, browser, key);
             }
+            response.getWriter().println(" <a href='..'>Back</a> ");
         } catch (TimedOutException e) {
             response.sendError(408, e.toString());
             return;
@@ -92,7 +121,70 @@ public class CassandraServlet extends javax.servlet.http.HttpServlet {
         } catch (TException e) {
             response.sendError(500, e.toString());
             return;
+        } catch (NotFoundException e) {
+            response.sendError(404, e.toString());
+            return;
         }
+    }
+
+    private void outputColumnFamilies(HttpServletResponse response, Set<String> columnFamilies) throws IOException {
+        PrintWriter writer = response.getWriter();
+        writer.println("<html><body><h2>Column families</h2>");
+        for (String columnFamily : columnFamilies) {
+            writer.println("<a href='" + encode(columnFamily) + "/'>" + encode(columnFamily) + "</a><br />");
+        }
+    }
+
+    private Set<String> browseKeyspaces(CassandraBrowser browser) throws TException {
+        return browser.getKeyspaces();
+    }
+
+    private void outputKeyspaces(HttpServletResponse response, Set<String> keyspaces) throws IOException {
+        PrintWriter writer = response.getWriter();
+        writer.println("<html><body><h2>Keyspaces</h2>");
+        for (String keyspace : keyspaces) {
+            writer.println("<a href='" + encode(keyspace) + "/'>" + encode(keyspace) + "</a><br />");
+        }
+    }
+
+    private TProtocol doOpenProtocol(String userHostPort) throws TTransportException {
+        TProtocol protocol;
+        String[]hostPortArr = userHostPort.split(":");
+        String host = hostPortArr[0];
+        int port = 9160;
+        if (hostPortArr.length > 1) {
+            try {
+                port = Integer.parseInt(hostPortArr[1]);
+            } catch (NumberFormatException nfe) {
+                //skip;
+            }
+        }
+
+        TSocket transport = new TSocket(host, port, 1000000);
+        protocol = new TBinaryProtocol(transport);
+        transport.open();
+        return protocol;
+    }
+
+    private void doStart(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        config.getServletContext().getRequestDispatcher("/WEB-INF/start.jsp").forward(request, response);
+    }
+
+    private void goRedirect(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        String hostname = request.getParameter("hostname");
+        String port = request.getParameter("port");
+        String username = request.getParameter("username");
+
+        String path = config.getServletContext().getContextPath() + "/";
+
+        path += (username == null || username.trim().isEmpty()) ? "" : (username.trim() + "@");
+        path += (hostname == null || hostname.trim().isEmpty()) ? "" : hostname.trim();
+
+        if (port != null && !port.trim().equals("9160")) {
+            path += ":" + port.trim();
+        }
+        path += "/";
+        response.sendRedirect(path);
     }
 
     private void browseRecord(HttpServletRequest request, HttpServletResponse response, CassandraBrowser browser, String key) throws IOException, TimedOutException, InvalidRequestException, UnavailableException, TException {
@@ -102,7 +194,7 @@ public class CassandraServlet extends javax.servlet.http.HttpServlet {
 
     private void outputRecord(HttpServletResponse response, String key, Map<String,CassandraBrowser.ValueTimestamp> record) throws IOException {
         PrintWriter writer = response.getWriter();
-        writer.println("<html><body><h3>" + encode(key) + "</h3>\n");
+        writer.println("<html><body><h2>Record </h2><h3>" + encode(key) + "</h3>\n");
         writer.println("<table border='1' cellpadding='0' cellspacing='0'>\n");
         writer.println("<tr><th>COLUMN</th><th>VALUE</th><th>TIMESTAMP</th></tr>\n");
         for (String columnName : record.keySet()) {
@@ -142,6 +234,7 @@ public class CassandraServlet extends javax.servlet.http.HttpServlet {
         } else {
             outputKeys(response, keys);
         }
+        response.getWriter().println("<hr></hr>");
         outputNext(response, keys, count, showTable);
         outputShowInTable(response, start, showTable);
     }
@@ -161,7 +254,7 @@ public class CassandraServlet extends javax.servlet.http.HttpServlet {
 
     private void outputTable(HttpServletResponse response, List<String> keys, List<String> columns, List<Map<String,CassandraBrowser.ValueTimestamp>> records) throws IOException {
         PrintWriter writer = response.getWriter();
-        writer.println("<html><body>\n");
+        writer.println("<html><body><h2>Records in table</h2>\n");
         writer.println("<table border='1' cellpadding='0' cellspacing='0'>\n");
 
         writer.println("<tr>");
@@ -199,7 +292,9 @@ public class CassandraServlet extends javax.servlet.http.HttpServlet {
 
     private void outputKeys(HttpServletResponse response, List<String> keys) throws IOException {
         PrintWriter writer = response.getWriter();
-        writer.println("<html><body>\n");
+
+        String range = keys.isEmpty() ? "" : encode(keys.get(0)) + " <span style='font-size: 70%'>to</span> " + encode(keys.get(keys.size() - 1));
+        writer.println("<html><body><h2>Keys</h2><h3>" + range + "</h3>\n");
         for (String key : keys) {
             writer.println("<a href='" + encode(key) + "/'>" + encode(key) + "</a>\n");
         }
@@ -215,7 +310,7 @@ public class CassandraServlet extends javax.servlet.http.HttpServlet {
             if (showTable) {
                 otherParams += "&showTable=true";
             }
-            writer.println("<hr></hr><a href='?start=" + encode(lastKey) + otherParams + "'>Next page</a>");
+            writer.println("<a href='?start=" + encode(lastKey) + otherParams + "'>Next page</a>");
         }
     }
 

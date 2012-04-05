@@ -4,13 +4,12 @@
 
 <web-app>
     <display-name>Cassandra web viewer</display-name>
-    <servlet>
-        <servlet-name>CassandraServlet</servlet-name>
-        <display-name>Cassandra servlet</display-name>
-        <servlet-class>org.cassandra_viewer.CassandraServlet</servlet-class>
-    </servlet>
-    <servlet-mapping>
-        <servlet-name>CassandraServlet</servlet-name>
+    <filter>
+        <filter-name>CassandraViewerFilter</filter-name>
+        <filter-class>org.cassandra_viewer.CassandraViewerFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>CassandraViewerFilter</filter-name>
         <url-pattern>/*</url-pattern>
-    </servlet-mapping>
+    </filter-mapping>
 </web-app>

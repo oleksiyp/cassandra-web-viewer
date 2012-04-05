@@ -8,6 +8,7 @@ import org.apache.cassandra.thrift.ConsistencyLevel;
 import org.apache.cassandra.thrift.InvalidRequestException;
 import org.apache.cassandra.thrift.KeyRange;
 import org.apache.cassandra.thrift.KeySlice;
+import org.apache.cassandra.thrift.NotFoundException;
 import org.apache.cassandra.thrift.SlicePredicate;
 import org.apache.cassandra.thrift.SliceRange;
 import org.apache.cassandra.thrift.SuperColumn;
@@ -19,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 /**
@@ -97,7 +99,7 @@ public class CassandraBrowser {
         Map<String, ValueTimestamp> result = new TreeMap<String, ValueTimestamp>();
         for (ColumnOrSuperColumn cosc : slice) {
             Column column = cosc.getColumn();
-            SuperColumn super_column = cosc.getSuper_column();
+            SuperColumn superColumn = cosc.getSuper_column();
             if (column != null) {
                 byte[] name = column.getName();
                 byte[] value = column.getValue();
@@ -105,20 +107,28 @@ public class CassandraBrowser {
                 result.put(new String(name),
                         new ValueTimestamp(value, column.getTimestamp())
                 );
-            } else if (super_column != null) {
-                for (Column subColumn : super_column.getColumns())
+            } else if (superColumn != null) {
+                for (Column subColumn : superColumn.getColumns())
                 {
                     byte[] name = subColumn.getName();
                     byte[] value = subColumn.getValue();
-                    String superName = super_column.getName() + ":" + new String(name);
+                    String superName = new String(superColumn.getName()) + ":" + new String(name);
                     result.put(superName,
-                        new ValueTimestamp(value, column.getTimestamp())
+                        new ValueTimestamp(value, subColumn.getTimestamp())
                     );
                 }
             }
         }
 
         return result;
+    }
+
+    public Set<String> getKeyspaces() throws TException {
+        return client.describe_keyspaces();
+    }
+
+    public Set<String> getColumnFamilies() throws TException, NotFoundException {
+        return client.describe_keyspace(keyspace).keySet();
     }
 
     public static class ValueTimestamp {

@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="Maven: org.apache.thrift:libthrift:r917130">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/apache/thrift/libthrift/r917130/libthrift-r917130.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$MAVEN_REPOSITORY$/org/apache/thrift/libthrift/r917130/libthrift-r917130-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/apache/thrift/libthrift/r917130/libthrift-r917130-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>
