@@ -64,6 +64,7 @@ public class CassandraServlet extends javax.servlet.http.HttpServlet {
             transport.open();
         } catch (TTransportException e) {
             response.sendError(500, e.toString());
+            return;
         }
 
         Cassandra.Client client = new Cassandra.Client(protocol);
@@ -81,12 +82,16 @@ public class CassandraServlet extends javax.servlet.http.HttpServlet {
             }
         } catch (TimedOutException e) {
             response.sendError(408, e.toString());
+            return;
         } catch (InvalidRequestException e) {
             response.sendError(400, e.toString());
+            return;
         } catch (UnavailableException e) {
             response.sendError(503, e.toString());
+            return;
         } catch (TException e) {
             response.sendError(500, e.toString());
+            return;
         }
     }
 
