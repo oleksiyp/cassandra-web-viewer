@@ -253,13 +253,19 @@ public class CassandraViewerFilter implements Filter {
                 if (hasNext) {
                     keys = keys.subList(0, keys.size() - 1);
                 }
-            }
-            if (end != null)
+            } else if (end != null)
             {
                 hasPrevoius = keys.size() == count + 1;
                 if (hasPrevoius) {
                     keys = keys.subList(1, keys.size());
                 }
+            } else {
+                // start and end is null
+                hasNext = keys.size() == count + 1;
+                if (hasNext) {
+                    keys = keys.subList(0, keys.size() - 1);
+                }
+                hasPrevoius = false;
             }
 
             boolean showTable = (showTableStr != null && showTableStr.trim().equals("true"));
