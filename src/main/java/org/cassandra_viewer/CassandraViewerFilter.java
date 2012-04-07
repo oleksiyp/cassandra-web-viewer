@@ -1,10 +1,13 @@
 package org.cassandra_viewer;
 
+import org.apache.cassandra.thrift.AuthenticationException;
+import org.apache.cassandra.thrift.AuthorizationException;
 import org.apache.cassandra.thrift.Cassandra;
 import org.apache.cassandra.thrift.InvalidRequestException;
 import org.apache.cassandra.thrift.NotFoundException;
 import org.apache.cassandra.thrift.TimedOutException;
 import org.apache.cassandra.thrift.UnavailableException;
+import org.apache.commons.codec.binary.Base64;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TProtocol;
 import org.apache.thrift.transport.TTransportException;
@@ -91,15 +94,25 @@ public class CassandraViewerFilter implements Filter {
                 return;
             }
 
-            String userHostPort = values[0];
+            String user = null;
+            String password = null;
+            String auth = request.getHeader("Authorization");
+            if (auth != null) {
+                auth = auth.replace("Basic", "").trim();
+                auth = new String(Base64.decodeBase64(auth));
+                String []authArr = auth.split(":");
+                user = authArr[0];
+                password = authArr[1];
+            }
+
+            String hostPort = values[0];
             TProtocol protocol;
             try {
-                protocol = CassandraBrowser.doOpenProtocol(userHostPort);
+                protocol = CassandraBrowser.doOpenProtocol(hostPort);
             } catch (TTransportException e) {
                 response.sendError(500, e.toString());
                 return;
             }
-            hostPort = userHostPort;
             Cassandra.Client client = new Cassandra.Client(protocol);
             browser = new CassandraBrowser(client);
 
@@ -108,14 +121,17 @@ public class CassandraViewerFilter implements Filter {
                     browseKeyspaces();
                 } else if (values.length == 2) {
                     browser.setKeyspace(values[1]);
+                    login(user, password);
                     browseColumnFamilies();
                 } else if (values.length == 3) {
                     browser.setKeyspace(values[1]);
+                    login(user, password);
                     browser.setColumnFamily(values[2]);
                     browser.setDeserialzer(new CassandraDeserializer(deserializer));
                     browseKeys(browser);
                 } else if (values.length == 4) {
                     browser.setKeyspace(values[1]);
+                    login(user, password);
                     browser.setColumnFamily(values[2]);
                     String key = values[3];
                     browser.setDeserialzer(new CassandraDeserializer(deserializer));
@@ -136,7 +152,17 @@ public class CassandraViewerFilter implements Filter {
             } catch (NotFoundException e) {
                 response.sendError(404, e.toString());
                 return;
+            } catch (AuthorizationException e) {
+                response.setHeader("WWW-Authenticate", "Basic realm=\"Authorization failed. No access to keyspace " + browser.getKeyspace() + "\"");
+                response.sendError(401, e.toString());
+            } catch (AuthenticationException e) {
+                response.setHeader("WWW-Authenticate", "Basic realm=\"Authentication failed. No access to keyspace " + browser.getKeyspace() + "\"");
+                response.sendError(401, e.toString());
             }
+        }
+
+        private void login(String username, String password) throws AuthorizationException, AuthenticationException, TException {
+            browser.login(username, password);
         }
 
         private void actionNavigate() throws IOException {

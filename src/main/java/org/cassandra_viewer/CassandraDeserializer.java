@@ -49,7 +49,7 @@ public class CassandraDeserializer {
     public Object deserialize(byte []bytes) {
         Type type = typeMap.get(bytes[0]);
         if (type == null) {
-            return decodeBytes(bytes, 0);
+            return new ByteArrayWrapper(decodeBytes(bytes, 0));
         }
         switch (type) {
             case NULL: return null;
@@ -58,14 +58,14 @@ public class CassandraDeserializer {
             case SHORT: return (int) decodeLong(bytes, 3);
             case INTEGER: return (int) decodeLong(bytes, 3);
             case LONG: return decodeLong(bytes, 3);
-            case BYTES: return decodeBytes(bytes, 1);
+            case BYTES: return new ByteArrayWrapper(decodeBytes(bytes, 1));
             case FLOAT: return Float.intBitsToFloat((int) decodeLong(bytes, 3));
             case DOUBLE: return Double.longBitsToDouble((int) decodeLong(bytes, 3));
             case DATE: return new Date(decodeLong(bytes, 3));
             case STRING: return decodeString(bytes);
             case UUID: return decodeUUID(bytes);
             case OBJECT: return decodeObject(bytes);
-            default: return decodeBytes(bytes, 0);
+            default: return new ByteArrayWrapper(decodeBytes(bytes, 0));
         }
     }
 
@@ -105,5 +105,52 @@ public class CassandraDeserializer {
             result |=  ((long) bytes[i] & 0xFF) << (bytes.length - i << shift);
         }
         return result;
+    }
+
+    public static class ByteArrayWrapper implements Comparable<ByteArrayWrapper> {
+        public byte[] array;
+
+        public ByteArrayWrapper(byte[] array) {
+            this.array = array;
+        }
+
+        public byte[] getArray() {
+            return array;
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder builder = new StringBuilder();
+            builder.append("[");
+            boolean first = true;
+            for (byte bt : array) {
+                if (!first) {
+                    builder.append(",");
+                }
+                first = false;
+                builder.append(String.format("%02X", bt));
+            }
+            builder.append("]");
+            return builder.toString();
+        }
+
+        @Override
+        public int compareTo(ByteArrayWrapper o) {
+            if (array.length < o.array.length) {
+                return -1;
+            }
+            if (array.length > o.array.length) {
+                return 1;
+            }
+            for (int i = 0; i < array.length; i++) {
+                if (array[i] < o.array[i]) {
+                    return -1;
+                }
+                if (array[i] > o.array[i]) {
+                    return 1;
+                }
+            }
+            return 0;
+        }
     }
 }

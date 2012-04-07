@@ -1,5 +1,8 @@
 package org.cassandra_viewer;
 
+import org.apache.cassandra.thrift.AuthenticationException;
+import org.apache.cassandra.thrift.AuthenticationRequest;
+import org.apache.cassandra.thrift.AuthorizationException;
 import org.apache.cassandra.thrift.Cassandra;
 import org.apache.cassandra.thrift.Column;
 import org.apache.cassandra.thrift.ColumnOrSuperColumn;
@@ -25,6 +28,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.Set;
 import java.util.TreeMap;
 
@@ -199,4 +203,17 @@ public class CassandraBrowser {
     }
 
 
+    public boolean login(String username, String password) throws AuthorizationException, TException, AuthenticationException {
+        AuthenticationRequest authRequest = new AuthenticationRequest();
+        Map credentials = new HashMap();
+        if (username != null) {
+            credentials.put("username", username);
+        }
+        if (password != null) {
+            credentials.put("password", password);
+        }
+        authRequest.setCredentials(credentials);
+        client.login(keyspace, authRequest);
+        return true;
+    }
 }
