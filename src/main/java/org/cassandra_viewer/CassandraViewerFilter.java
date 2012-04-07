@@ -147,6 +147,11 @@ public class CassandraViewerFilter implements Filter {
                 response.sendError(503, e.toString());
                 return;
             } catch (TException e) {
+                if (e.getMessage().equals("Internal error processing login")) {
+                    response.setHeader("WWW-Authenticate", "Basic realm=\"No access to keyspace " + browser.getKeyspace() + "\"");
+                    response.sendError(401, e.toString());
+                    return;
+                }
                 response.sendError(500, e.toString());
                 return;
             } catch (NotFoundException e) {
