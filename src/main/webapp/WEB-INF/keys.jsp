@@ -3,7 +3,7 @@
         language="java"
         isELIgnored="false" %>
 
-<%@ page import="org.cassandra_viewer.CassandraBrowser" %>
+<%@ page import="org.cassandra_viewer.data.CassandraBrowser" %>
 <%@ page import="java.util.Map" %>
 <%@ page import="java.util.List" %>
 <%@ page import="javax.servlet.jsp.jstl.core.LoopTagStatus" %>

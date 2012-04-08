@@ -1,4 +1,4 @@
-package org.cassandra_viewer;
+package org.cassandra_viewer.data;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;

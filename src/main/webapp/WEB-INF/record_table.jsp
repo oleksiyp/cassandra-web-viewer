@@ -3,13 +3,13 @@
         language="java"
         isELIgnored="false" %>
 
-<%@ page import="org.cassandra_viewer.CassandraBrowser" %>
+<%@ page import="org.cassandra_viewer.data.CassandraBrowser" %>
 <%@ page import="java.util.Map" %>
 <%@ page import="java.util.List" %>
 <%@ page import="javax.servlet.jsp.jstl.core.LoopTagStatus" %>
 <%@ page import="org.cassandra_viewer.util.Encoder" %>
-<%@ page import="org.cassandra_viewer.ValueTimestamp" %>
-<%@ page import="org.cassandra_viewer.GeneralColumn" %>
+<%@ page import="org.cassandra_viewer.data.ValueTimestamp" %>
+<%@ page import="org.cassandra_viewer.data.GeneralColumn" %>
 
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <html>

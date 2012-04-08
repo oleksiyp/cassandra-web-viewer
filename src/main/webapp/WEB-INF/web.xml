@@ -5,15 +5,15 @@
 <web-app>
     <display-name>Cassandra web viewer</display-name>
     <filter>
-        <filter-name>CassandraViewerFilter</filter-name>
-        <filter-class>org.cassandra_viewer.CassandraViewerFilter</filter-class>
+        <filter-name>FrontFilter</filter-name>
+        <filter-class>org.cassandra_viewer.FrontFilter</filter-class>
         <init-param>
             <param-name>DEFAULT_DESERIALZER</param-name>
             <param-value>0->boolean,1->bytes,2->date,3->integer,4->long,5->string,6->uuid,7->object,8->float</param-value>
         </init-param>
     </filter>
     <filter-mapping>
-        <filter-name>CassandraViewerFilter</filter-name>
+        <filter-name>FrontFilter</filter-name>
         <url-pattern>/*</url-pattern>
     </filter-mapping>
 </web-app>

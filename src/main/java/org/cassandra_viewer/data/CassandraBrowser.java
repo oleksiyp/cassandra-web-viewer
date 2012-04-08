@@ -1,4 +1,4 @@
-package org.cassandra_viewer;
+package org.cassandra_viewer.data;
 
 import org.apache.cassandra.thrift.AuthenticationException;
 import org.apache.cassandra.thrift.AuthenticationRequest;
@@ -25,6 +25,7 @@ import org.apache.thrift.transport.TTransportException;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -215,5 +216,10 @@ public class CassandraBrowser {
         authRequest.setCredentials(credentials);
         client.login(keyspace, authRequest);
         return true;
+    }
+
+    public Collection<GeneralColumn> getColumns(String cf) throws TException, NotFoundException {
+        Map<String, Map<String, String>> stringMapMap = client.describe_keyspace(keyspace);
+        return null;
     }
 }
